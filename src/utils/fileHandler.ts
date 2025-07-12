@@ -1,18 +1,6 @@
+
 // File handling utilities for virtual try-on
 export const saveImageToFileSystem = async (file: File, filename: string): Promise<string> => {
-  // In a real application, this would upload to a server or save to a temp directory
-  // For now, we'll create a URL that represents where the file would be saved
-  
-  // Create a temp directory structure your FastAPI can access
-  const tempDir = './temp_images';
-  const fullPath = `${tempDir}/${filename}`;
-  
-  // In production, you would:
-  // 1. Create an API endpoint to save files
-  // 2. Upload the file to that endpoint
-  // 3. Return the file path
-  
-  // For demo purposes, we'll save the file using a different approach
   return await uploadImageFile(file, filename);
 };
 
@@ -21,20 +9,24 @@ export const uploadImageFile = async (file: File, filename: string): Promise<str
     // Create FormData to send file to backend
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('filename', filename);
     
-    // Upload to a temporary file service endpoint
+    // Upload to your FastAPI backend
     const response = await fetch('http://localhost:8000/upload-temp-file', {
       method: 'POST',
       body: formData
     });
     
     if (!response.ok) {
-      throw new Error('Failed to upload file');
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
     }
     
     const result = await response.json();
-    return result.file_path;
+    
+    if (result.status === 'success') {
+      return result.file_path;
+    } else {
+      throw new Error(result.message || 'Upload failed');
+    }
   } catch (error) {
     console.error('Failed to upload file:', error);
     // Fallback: return a dummy path for testing

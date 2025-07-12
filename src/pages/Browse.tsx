@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import { itemsAPI, Item } from '@/lib/localStorage';
-import { Search, Filter, MapPin, User, Star } from 'lucide-react';
+import { Search, Filter, MapPin, User, Star, Image as ImageIcon } from 'lucide-react';
 import MascotIcon from '@/components/MascotIcon';
 
 const Browse = () => {
@@ -34,39 +34,60 @@ const Browse = () => {
   }, []);
 
   useEffect(() => {
-    // Start with all approved items
-    let filtered = items.filter(item => item.status === 'approved');
+    let filtered = [...items];
 
-    // Apply search
+    // Apply search filter
     if (searchQuery.trim()) {
-      const lowercaseQuery = searchQuery.toLowerCase();
+      const lowercaseQuery = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(item =>
         item.title.toLowerCase().includes(lowercaseQuery) ||
         item.description.toLowerCase().includes(lowercaseQuery) ||
-        item.brand?.toLowerCase().includes(lowercaseQuery) ||
-        item.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
+        (item.brand && item.brand.toLowerCase().includes(lowercaseQuery)) ||
+        item.category.toLowerCase().includes(lowercaseQuery) ||
+        item.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery)) ||
+        item.username.toLowerCase().includes(lowercaseQuery)
       );
     }
 
-    // Apply filters
+    // Apply category filter
     if (filters.category && filters.category !== 'All') {
       filtered = filtered.filter(item => item.category === filters.category);
     }
     
+    // Apply size filter
     if (filters.size && filters.size !== 'All') {
       filtered = filtered.filter(item => item.size === filters.size);
     }
     
+    // Apply type filter
     if (filters.type && filters.type !== 'All') {
       filtered = filtered.filter(item => item.type === filters.type);
     }
     
+    // Apply condition filter
     if (filters.condition && filters.condition !== 'All') {
       filtered = filtered.filter(item => item.condition === filters.condition);
     }
 
     setFilteredItems(filtered);
   }, [searchQuery, filters, items]);
+
+  const handleFilterChange = (filterType: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value === 'All' ? '' : value
+    }));
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilters({
+      category: '',
+      size: '',
+      type: '',
+      condition: ''
+    });
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -86,6 +107,70 @@ const Browse = () => {
     }
   };
 
+  const ItemImageDisplay = ({ item }: { item: Item }) => {
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [imageError, setImageError] = useState(false);
+    
+    const validImages = item.images.filter(img => img && img.trim() !== '');
+    const hasValidImages = validImages.length > 0;
+    
+    if (!hasValidImages || imageError) {
+      return (
+        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+          <div className="text-center">
+            <ImageIcon className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+            <p className="text-xs text-gray-500">No image available</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative w-full h-full">
+        <img
+          src={validImages[currentImageIndex]}
+          alt={item.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          onError={() => {
+            if (currentImageIndex < validImages.length - 1) {
+              setCurrentImageIndex(prev => prev + 1);
+            } else {
+              setImageError(true);
+            }
+          }}
+        />
+        
+        {/* Image counter */}
+        {validImages.length > 1 && (
+          <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
+            {currentImageIndex + 1}/{validImages.length}
+          </div>
+        )}
+        
+        {/* Navigation dots for multiple images */}
+        {validImages.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
+            {validImages.map((_, index) => (
+              <button
+                key={index}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentImageIndex(index);
+                }}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  index === currentImageIndex 
+                    ? 'bg-white' 
+                    : 'bg-white/50 hover:bg-white/75'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-yellow-50 dark:from-purple-950 dark:via-pink-950 dark:to-yellow-950">
       <Navbar />
@@ -103,7 +188,7 @@ const Browse = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search items..."
+                  placeholder="Search items, brands, users..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -111,7 +196,7 @@ const Browse = () => {
               </div>
             </div>
             
-            <Select value={filters.category} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}>
+            <Select value={filters.category || 'All'} onValueChange={(value) => handleFilterChange('category', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -122,7 +207,7 @@ const Browse = () => {
               </SelectContent>
             </Select>
 
-            <Select value={filters.size} onValueChange={(value) => setFilters(prev => ({ ...prev, size: value }))}>
+            <Select value={filters.size || 'All'} onValueChange={(value) => handleFilterChange('size', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Size" />
               </SelectTrigger>
@@ -133,7 +218,7 @@ const Browse = () => {
               </SelectContent>
             </Select>
 
-            <Select value={filters.type} onValueChange={(value) => setFilters(prev => ({ ...prev, type: value }))}>
+            <Select value={filters.type || 'All'} onValueChange={(value) => handleFilterChange('type', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
@@ -146,7 +231,7 @@ const Browse = () => {
               </SelectContent>
             </Select>
 
-            <Select value={filters.condition} onValueChange={(value) => setFilters(prev => ({ ...prev, condition: value }))}>
+            <Select value={filters.condition || 'All'} onValueChange={(value) => handleFilterChange('condition', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Condition" />
               </SelectTrigger>
@@ -157,12 +242,48 @@ const Browse = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Active Filters and Clear Button */}
+          {(searchQuery || filters.category || filters.size || filters.type || filters.condition) && (
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Active filters:</span>
+              {searchQuery && (
+                <Badge variant="secondary" className="gap-1">
+                  Search: "{searchQuery}"
+                </Badge>
+              )}
+              {filters.category && (
+                <Badge variant="secondary" className="gap-1">
+                  Category: {filters.category}
+                </Badge>
+              )}
+              {filters.size && (
+                <Badge variant="secondary" className="gap-1">
+                  Size: {filters.size}
+                </Badge>
+              )}
+              {filters.type && (
+                <Badge variant="secondary" className="gap-1">
+                  Type: {filters.type}
+                </Badge>
+              )}
+              {filters.condition && (
+                <Badge variant="secondary" className="gap-1">
+                  Condition: {filters.condition}
+                </Badge>
+              )}
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <Filter className="w-3 h-3 mr-1" />
+                Clear All
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Results */}
         <div className="mb-4">
           <p className="text-gray-600 dark:text-gray-400">
-            Showing {filteredItems.length} items
+            Showing {filteredItems.length} of {items.length} items
           </p>
         </div>
 
@@ -172,17 +293,7 @@ const Browse = () => {
             <Link key={`${item.id}-${index}`} to={`/item/${item.id}`}>
               <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-0">
                 <div className="aspect-square overflow-hidden rounded-t-lg relative">
-                  <img
-                    src={item.images[0] || '/placeholder.svg'}
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  {/* Multiple images indicator */}
-                  {item.images.length > 1 && (
-                    <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded-full text-xs">
-                      +{item.images.length - 1}
-                    </div>
-                  )}
+                  <ItemImageDisplay item={item} />
                 </div>
                 
                 <CardContent className="p-4">
@@ -198,7 +309,7 @@ const Browse = () => {
                   </p>
                   
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                    <span>{item.brand}</span>
+                    <span>{item.brand || 'No brand'}</span>
                     <span>{item.size}</span>
                   </div>
                   
@@ -244,10 +355,24 @@ const Browse = () => {
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
             <MascotIcon size={120} category={filters.category || 'general'} className="mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No items found</h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Try adjusting your search or filters
-            </p>
+            {searchQuery || filters.category || filters.size || filters.type || filters.condition ? (
+              <>
+                <h3 className="text-xl font-semibold mb-2">No items found</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Try adjusting your search or filters
+                </p>
+                <Button onClick={clearFilters}>
+                  Clear all filters
+                </Button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-semibold mb-2">No items available</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Be the first to add items to the marketplace!
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

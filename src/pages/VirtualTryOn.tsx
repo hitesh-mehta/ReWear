@@ -4,19 +4,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import { itemsAPI, type Item } from '@/lib/localStorage';
-import { saveImageToFileSystem, dataURLToFile } from '@/utils/fileHandler';
+import { uploadImageFile } from '@/utils/fileHandler';
 import { 
   Camera, 
   Upload, 
   RotateCcw, 
   Download, 
   Share2,
-  Maximize,
-  Settings,
   Sparkles,
   Shirt,
   User,
@@ -33,6 +30,7 @@ const VirtualTryOn = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [tryOnResult, setTryOnResult] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,15 +42,26 @@ const VirtualTryOn = () => {
     }
   }, [itemId]);
 
+  useEffect(() => {
+    return () => {
+      // Cleanup camera stream on unmount
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          width: 640, 
-          height: 480,
+          width: { ideal: 640 }, 
+          height: { ideal: 480 },
           facingMode: 'user' 
         } 
       });
+      
+      setCameraStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -60,21 +69,28 @@ const VirtualTryOn = () => {
           videoRef.current?.play();
         };
         setCameraActive(true);
+        
+        toast({
+          title: "Camera Started",
+          description: "Position yourself in the frame and click capture when ready",
+        });
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
       toast({
         title: "Camera Error", 
-        description: "Unable to access camera. Please check permissions.",
+        description: "Unable to access camera. Please check permissions and try again.",
         variant: "destructive"
       });
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
@@ -90,7 +106,11 @@ const VirtualTryOn = () => {
       
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(video, 0, 0);
+        // Flip the image horizontally for selfie effect
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, -canvas.width, 0);
+        ctx.scale(-1, 1);
+        
         const imageData = canvas.toDataURL('image/jpeg', 0.8);
         setUserImage(imageData);
         stopCamera();
@@ -106,6 +126,15 @@ const VirtualTryOn = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 10MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         setUserImage(e.target?.result as string);
@@ -118,34 +147,68 @@ const VirtualTryOn = () => {
     }
   };
 
+  const dataURLToFile = (dataURL: string, filename: string): File => {
+    const arr = dataURL.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
+
   const processVirtualTryOn = async () => {
-    if (!userImage || !item) return;
+    if (!userImage || !item) {
+      toast({
+        title: "Missing Images",
+        description: "Please capture or upload your photo first",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsProcessing(true);
     
     try {
-      // Save user image temporarily
-      const userImageFile = await dataURLToFile(userImage, 'user-image.jpg');
-      const userImagePath = await saveImageToFileSystem(userImageFile, 'user-image.jpg');
+      // Convert user image to file and upload
+      const userImageFile = dataURLToFile(userImage, 'user-image.jpg');
+      const userImagePath = await uploadImageFile(userImageFile, 'user-image.jpg');
       
-      // Get cloth image path
-      const clothImageUrl = item.images[0] || '/placeholder.svg';
+      // Get cloth image path - use the first image from the item
+      const clothImageUrl = item.images[0];
       let clothImagePath = clothImageUrl;
       
-      // If cloth image is a URL, download it and save locally
-      if (clothImageUrl.startsWith('http') || clothImageUrl.startsWith('/')) {
+      // If cloth image is a URL, download and save it locally
+      if (clothImageUrl && (clothImageUrl.startsWith('http') || clothImageUrl.startsWith('/'))) {
         try {
-          const clothResponse = await fetch(clothImageUrl);
-          const clothBlob = await clothResponse.blob();
+          let clothBlob;
+          if (clothImageUrl.startsWith('http')) {
+            const clothResponse = await fetch(clothImageUrl);
+            clothBlob = await clothResponse.blob();
+          } else {
+            // Handle local URLs by fetching from public directory
+            const clothResponse = await fetch(clothImageUrl);
+            clothBlob = await clothResponse.blob();
+          }
           const clothFile = new File([clothBlob], 'cloth-image.jpg', { type: 'image/jpeg' });
-          clothImagePath = await saveImageToFileSystem(clothFile, 'cloth-image.jpg');
+          clothImagePath = await uploadImageFile(clothFile, 'cloth-image.jpg');
         } catch (err) {
-          console.warn('Failed to download cloth image, using URL directly:', err);
-          clothImagePath = clothImageUrl;
+          console.warn('Failed to process cloth image:', err);
+          toast({
+            title: "Image Processing Error",
+            description: "Failed to process the clothing image. Please try again.",
+            variant: "destructive"
+          });
+          setIsProcessing(false);
+          return;
         }
       }
       
-      // Call the FastAPI backend
+      console.log('Sending request to FastAPI with paths:', { userImagePath, clothImagePath });
+      
+      // Call your FastAPI backend
       const response = await fetch(
         `http://localhost:8000/tryon?person_image_path=${encodeURIComponent(userImagePath)}&cloth_image_path=${encodeURIComponent(clothImagePath)}`,
         {
@@ -161,6 +224,7 @@ const VirtualTryOn = () => {
       }
       
       const result = await response.json();
+      console.log('FastAPI response:', result);
       
       if (result.status === 'success') {
         setTryOnResult(result.result_url);
@@ -174,17 +238,14 @@ const VirtualTryOn = () => {
     } catch (error) {
       console.error('Virtual try-on error:', error);
       toast({
-        title: "Error",
-        description: `Failed to process virtual try-on: ${error.message}. Please check if your backend is running.`,
+        title: "Try-On Failed",
+        description: `Failed to process virtual try-on: ${error.message}. Please ensure your backend is running on localhost:8000.`,
         variant: "destructive"
       });
-      // Fallback to demo result for testing
-      setTryOnResult(userImage);
     } finally {
       setIsProcessing(false);
     }
   };
-
 
   const resetTryOn = () => {
     setUserImage(null);
@@ -210,29 +271,24 @@ const VirtualTryOn = () => {
   const shareResult = async () => {
     if (tryOnResult && navigator.share) {
       try {
-        // Convert data URL to blob for sharing
-        const response = await fetch(tryOnResult);
-        const blob = await response.blob();
-        const file = new File([blob], 'virtual-tryon.jpg', { type: 'image/jpeg' });
-        
         await navigator.share({
           title: `Virtual Try-On: ${item?.title}`,
           text: 'Check out how this looks on me with ReWear\'s Virtual Try-On!',
-          files: [file]
+          url: tryOnResult
         });
       } catch (error) {
         // Fallback to copying link
-        navigator.clipboard.writeText(window.location.href);
+        navigator.clipboard.writeText(tryOnResult);
         toast({
           title: "Link Copied!",
-          description: "Virtual try-on link copied to clipboard",
+          description: "Virtual try-on result link copied to clipboard",
         });
       }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+    } else if (tryOnResult) {
+      navigator.clipboard.writeText(tryOnResult);
       toast({
         title: "Link Copied!",
-        description: "Virtual try-on link copied to clipboard",
+        description: "Virtual try-on result link copied to clipboard",
       });
     }
   };
@@ -348,20 +404,20 @@ const VirtualTryOn = () => {
 
               {cameraActive && (
                 <div className="space-y-4">
-                  <div className="relative aspect-square overflow-hidden rounded-lg">
+                  <div className="relative aspect-square overflow-hidden rounded-lg bg-black">
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover scale-x-[-1]"
                     />
                   </div>
                   
                   <div className="flex gap-2">
                     <Button onClick={capturePhoto} className="flex-1">
                       <Camera className="w-4 h-4 mr-2" />
-                      Capture
+                      Capture Photo
                     </Button>
                     <Button variant="outline" onClick={stopCamera}>
                       Cancel
@@ -401,7 +457,7 @@ const VirtualTryOn = () => {
                         Processing virtual try-on...
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
-                        This may take a few moments
+                        This may take up to 15 seconds
                       </p>
                     </div>
                   </div>
@@ -441,7 +497,7 @@ const VirtualTryOn = () => {
                       How does it look?
                     </p>
                     <div className="flex gap-2 justify-center">
-                      <Button size="sm">
+                      <Button size="sm" onClick={() => navigate(`/item/${item.id}`)}>
                         Request to Swap
                       </Button>
                       <Button size="sm" variant="outline">
@@ -461,10 +517,7 @@ const VirtualTryOn = () => {
         {/* Tips Card */}
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Tips for Best Results
-            </CardTitle>
+            <CardTitle>Tips for Best Results</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4 text-sm">
@@ -483,7 +536,7 @@ const VirtualTryOn = () => {
                   <li>• Use a plain background</li>
                   <li>• Take a full-body shot</li>
                   <li>• Avoid shadows and reflections</li>
-                  <li>• Remove accessories that might interfere</li>
+                  <li>• Ensure good image quality</li>
                 </ul>
               </div>
             </div>
