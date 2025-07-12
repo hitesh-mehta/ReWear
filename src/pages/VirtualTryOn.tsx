@@ -54,20 +54,23 @@ const VirtualTryOn = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 },
+          width: { ideal: 480 }, 
+          height: { ideal: 640 },
           facingMode: 'user' 
         } 
       });
       
       setCameraStream(stream);
+      setCameraActive(true);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          setCameraActive(true);
-        };
+        await new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = resolve;
+          }
+        });
+        videoRef.current.play();
         
         toast({
           title: "Camera Started",
@@ -197,16 +200,21 @@ const VirtualTryOn = () => {
       const userImagePath = await uploadImageToBackend(userImageBlob, 'user-image.jpg');
       
       // Get cloth image - use the first image from the item
-      let clothImagePath = item.images[0];
+      const clothImageUrl = item.images[0];
       
-      // If cloth image is a URL, download and upload to backend
-      if (clothImagePath && clothImagePath.startsWith('http')) {
-        const clothResponse = await fetch(clothImagePath);
+      console.log('Calling virtual try-on API with:', { userImagePath, clothImageUrl });
+      
+      // Check if cloth image is a URL or local path
+      let clothImagePath = clothImageUrl;
+      
+      // If it's a URL (starts with http), we'll pass it directly to the backend
+      // If it's a local path, we need to upload it first
+      if (clothImageUrl && !clothImageUrl.startsWith('http')) {
+        // It's a local path, need to upload it
+        const clothResponse = await fetch(clothImageUrl);
         const clothBlob = await clothResponse.blob();
         clothImagePath = await uploadImageToBackend(clothBlob, 'cloth-image.jpg');
       }
-      
-      console.log('Calling virtual try-on API with paths:', { userImagePath, clothImagePath });
       
       // Call your FastAPI backend
       const response = await fetch(
@@ -409,7 +417,7 @@ const VirtualTryOn = () => {
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover scale-x-[-1]"
+                      className="w-full h-full object-cover transform scale-x-[-1]"
                     />
                   </div>
                   

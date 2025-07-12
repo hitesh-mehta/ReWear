@@ -15,7 +15,7 @@ const UniversalThemeToggle = () => {
   if (!shouldShow) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-fade-in">
+    <div className="fixed top-4 left-4 z-50 animate-fade-in">
       <Button
         variant="outline"
         size="icon"
