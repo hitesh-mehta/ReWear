@@ -73,7 +73,7 @@
 git clone https://github.com/hitesh-mehta/ReWear.git
 cd ReWear
 npm install
-
+```
 ## 🚀 Demo
 
 🎥 **Watch the Demo Video Here:**  
