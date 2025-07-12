@@ -211,7 +211,7 @@ const Index = () => {
           </div>
           
           <div className="text-gray-600 dark:text-gray-400">
-            © 2024 ReWear. Sustainable fashion for everyone.
+            © 2025 ReWear. Sustainable fashion for everyone.
           </div>
         </div>
       </footer>

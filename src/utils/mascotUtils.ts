@@ -1,22 +1,22 @@
 
 // Unified mascot utility for all mascot-related functionality
 export const MASCOT_IMAGES = {
-  'men': '/mascot1.png',
-  'women': '/mascot2.png', 
-  'sports': '/mascot3.png',
-  'sporty': '/mascot3.png',
-  'vintage': '/mascot4.png',
-  'oldies': '/mascot4.png',
-  'formal': '/mascot5.png',
-  'casual': '/mascot6.png',
-  'tops': '/mascot2.png',
-  'bottoms': '/mascot1.png',
-  'dresses': '/mascot2.png',
-  'jackets': '/mascot5.png',
-  'shoes': '/mascot3.png',
-  'accessories': '/mascot6.png',
-  'sets': '/mascot2.png',
-  'general': '/mascot1.png'
+  "men": "/men_nobg.jpg",
+  "women": "/women_nobg.jpg",
+  "sports": "/coolgirl_nobg.png",
+  "sporty": "/gymboy_nobg.png",
+  "vintage": "/vintage_nobg.png",
+  "oldies": "/oldie_nobg.png",
+  "formal": "/businessman_nobg.png",
+  "casual": "/coolboy_nobg.png",
+  "tops": "/top_nobg.png",
+  "bottoms": "/jeans_nobg.png",
+  "dresses": "/dress_nobg.png",
+  "jackets": "/view-3d-cool-mordern-bird_nobg.png",
+  "shoes": "/shoes_nobg.png",
+  "accessories": "/accessories_nobg.png",
+  "sets": "/sets_nobg.png",
+  "general": "/cowboy_nobg.png"
 } as const;
 
 export type MascotCategory = keyof typeof MASCOT_IMAGES;
