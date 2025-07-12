@@ -73,3 +73,8 @@
 git clone https://github.com/hitesh-mehta/ReWear.git
 cd ReWear
 npm install
+
+## 🚀 Demo
+
+🎥 **Watch the Demo Video Here:**  
+[📂 Google Drive – ReWear Demo Video](https://drive.google.com/drive/folders/19SOYHeuI37MijVtXSIdAEuE2Pd0dXW8Q?usp=sharing)
