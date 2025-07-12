@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = "530d811337d44e59b55bd17567328723_9b7da23f09654574b7cd24f63be9d4c2_andoraitools"
+API_KEY = "put-your-api-key-here"
 
 TEMP_DIR = "temp_images"
 os.makedirs(TEMP_DIR, exist_ok=True)
