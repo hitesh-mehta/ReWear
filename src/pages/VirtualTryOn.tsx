@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import { itemsAPI, type Item } from '@/lib/localStorage';
-import { uploadImageFile } from '@/utils/fileHandler';
 import { 
   Camera, 
   Upload, 
@@ -67,8 +66,8 @@ const VirtualTryOn = () => {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
           videoRef.current?.play();
+          setCameraActive(true);
         };
-        setCameraActive(true);
         
         toast({
           title: "Camera Started",
@@ -126,7 +125,7 @@ const VirtualTryOn = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "File too large",
           description: "Please select an image smaller than 10MB",
@@ -147,7 +146,7 @@ const VirtualTryOn = () => {
     }
   };
 
-  const dataURLToFile = (dataURL: string, filename: string): File => {
+  const dataURLToBlob = (dataURL: string): Blob => {
     const arr = dataURL.split(',');
     const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
     const bstr = atob(arr[1]);
@@ -156,7 +155,28 @@ const VirtualTryOn = () => {
     while (n--) {
       u8arr[n] = bstr.charCodeAt(n);
     }
-    return new File([u8arr], filename, { type: mime });
+    return new Blob([u8arr], { type: mime });
+  };
+
+  const uploadImageToBackend = async (imageBlob: Blob, filename: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', imageBlob, filename);
+    
+    const response = await fetch('http://localhost:8000/upload-temp-file', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (result.status === 'success') {
+      return result.file_path;
+    } else {
+      throw new Error(result.message || 'Upload failed');
+    }
   };
 
   const processVirtualTryOn = async () => {
@@ -172,41 +192,21 @@ const VirtualTryOn = () => {
     setIsProcessing(true);
     
     try {
-      // Convert user image to file and upload
-      const userImageFile = dataURLToFile(userImage, 'user-image.jpg');
-      const userImagePath = await uploadImageFile(userImageFile, 'user-image.jpg');
+      // Convert user image to blob and upload
+      const userImageBlob = dataURLToBlob(userImage);
+      const userImagePath = await uploadImageToBackend(userImageBlob, 'user-image.jpg');
       
-      // Get cloth image path - use the first image from the item
-      const clothImageUrl = item.images[0];
-      let clothImagePath = clothImageUrl;
+      // Get cloth image - use the first image from the item
+      let clothImagePath = item.images[0];
       
-      // If cloth image is a URL, download and save it locally
-      if (clothImageUrl && (clothImageUrl.startsWith('http') || clothImageUrl.startsWith('/'))) {
-        try {
-          let clothBlob;
-          if (clothImageUrl.startsWith('http')) {
-            const clothResponse = await fetch(clothImageUrl);
-            clothBlob = await clothResponse.blob();
-          } else {
-            // Handle local URLs by fetching from public directory
-            const clothResponse = await fetch(clothImageUrl);
-            clothBlob = await clothResponse.blob();
-          }
-          const clothFile = new File([clothBlob], 'cloth-image.jpg', { type: 'image/jpeg' });
-          clothImagePath = await uploadImageFile(clothFile, 'cloth-image.jpg');
-        } catch (err) {
-          console.warn('Failed to process cloth image:', err);
-          toast({
-            title: "Image Processing Error",
-            description: "Failed to process the clothing image. Please try again.",
-            variant: "destructive"
-          });
-          setIsProcessing(false);
-          return;
-        }
+      // If cloth image is a URL, download and upload to backend
+      if (clothImagePath && clothImagePath.startsWith('http')) {
+        const clothResponse = await fetch(clothImagePath);
+        const clothBlob = await clothResponse.blob();
+        clothImagePath = await uploadImageToBackend(clothBlob, 'cloth-image.jpg');
       }
       
-      console.log('Sending request to FastAPI with paths:', { userImagePath, clothImagePath });
+      console.log('Calling virtual try-on API with paths:', { userImagePath, clothImagePath });
       
       // Call your FastAPI backend
       const response = await fetch(
@@ -224,7 +224,7 @@ const VirtualTryOn = () => {
       }
       
       const result = await response.json();
-      console.log('FastAPI response:', result);
+      console.log('Try-on API response:', result);
       
       if (result.status === 'success') {
         setTryOnResult(result.result_url);
@@ -239,7 +239,7 @@ const VirtualTryOn = () => {
       console.error('Virtual try-on error:', error);
       toast({
         title: "Try-On Failed",
-        description: `Failed to process virtual try-on: ${error.message}. Please ensure your backend is running on localhost:8000.`,
+        description: `Failed to process virtual try-on: ${error.message}. Make sure your backend is running on localhost:8000.`,
         variant: "destructive"
       });
     } finally {
@@ -277,7 +277,6 @@ const VirtualTryOn = () => {
           url: tryOnResult
         });
       } catch (error) {
-        // Fallback to copying link
         navigator.clipboard.writeText(tryOnResult);
         toast({
           title: "Link Copied!",
@@ -333,7 +332,7 @@ const VirtualTryOn = () => {
             <CardContent className="space-y-4">
               <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
                 <img
-                  src={item.images[0] || '/placeholder.svg'}
+                  src={item.images[0] || 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop'}
                   alt={item.title}
                   className="w-full h-full object-cover"
                 />

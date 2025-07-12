@@ -1,46 +1,33 @@
-# ADD THIS TO YOUR EXISTING tryon.py FastAPI CODE:
 
-from fastapi import FastAPI, Query, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-import shutil
+from fastapi import FastAPI, File, UploadFile, HTTPException
 import os
+import uuid
+from pathlib import Path
 
-# Add CORS middleware to your existing app
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Create temp directory if it doesn't exist
-TEMP_DIR = "temp_images"
-os.makedirs(TEMP_DIR, exist_ok=True)
+# Add this to your existing FastAPI app
 
 @app.post("/upload-temp-file")
-async def upload_temp_file(file: UploadFile = File(...), filename: str = None):
+async def upload_temp_file(file: UploadFile = File(...)):
     try:
-        # Use provided filename or generate from uploaded filename
-        if not filename:
-            filename = file.filename
+        # Create temp directory if it doesn't exist
+        temp_dir = Path("temp_images")
+        temp_dir.mkdir(exist_ok=True)
         
-        # Save file to temp directory
-        file_path = os.path.join(TEMP_DIR, filename)
+        # Generate unique filename
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        file_path = temp_dir / unique_filename
         
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Save file
+        contents = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
         
         return {
             "status": "success",
-            "file_path": file_path,
-            "message": f"File saved successfully as {file_path}"
+            "file_path": str(file_path),
+            "message": "File uploaded successfully"
         }
-    
+        
     except Exception as e:
-        return {
-            "status": "error", 
-            "message": str(e)
-        }
-
-# Your existing /tryon endpoint remains unchanged
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")

@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import { itemsAPI, Item } from '@/lib/localStorage';
-import { Search, Filter, MapPin, User, Star, Image as ImageIcon } from 'lucide-react';
+import { Search, Filter, MapPin, User, Image as ImageIcon } from 'lucide-react';
 import MascotIcon from '@/components/MascotIcon';
 
 const Browse = () => {
@@ -26,6 +26,20 @@ const Browse = () => {
   const sizes = ['All', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'];
   const types = ['All', 'swap', 'rent', 'redeem'];
   const conditions = ['All', 'Excellent', 'Good', 'Fair', 'Needs TLC'];
+
+  // Fallback images for different categories
+  const getFallbackImage = (category: string) => {
+    const fallbacks = {
+      'Tops': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=400&fit=crop',
+      'Bottoms': 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=400&fit=crop',
+      'Dresses': 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=400&fit=crop',
+      'Jackets': 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=400&fit=crop',
+      'Shoes': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=400&fit=crop',
+      'Accessories': 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=400&fit=crop',
+      'Sets': 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&h=400&fit=crop'
+    };
+    return fallbacks[category] || 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop';
+  };
 
   useEffect(() => {
     const allItems = itemsAPI.getAll().filter(item => item.status === 'approved');
@@ -111,16 +125,30 @@ const Browse = () => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [imageError, setImageError] = useState(false);
     
-    const validImages = item.images.filter(img => img && img.trim() !== '');
-    const hasValidImages = validImages.length > 0;
+    // Filter valid images and add fallback if none exist
+    const validImages = item.images?.filter(img => img && img.trim() !== '') || [];
+    const imagesToShow = validImages.length > 0 ? validImages : [getFallbackImage(item.category)];
     
-    if (!hasValidImages || imageError) {
+    if (imageError && currentImageIndex >= imagesToShow.length - 1) {
+      // If all images failed, show fallback
       return (
         <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-          <div className="text-center">
-            <ImageIcon className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-            <p className="text-xs text-gray-500">No image available</p>
-          </div>
+          <img
+            src={getFallbackImage(item.category)}
+            alt={item.title}
+            className="w-full h-full object-cover"
+            onError={() => {
+              // Ultimate fallback
+              return (
+                <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                  <div className="text-center">
+                    <ImageIcon className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                    <p className="text-xs text-gray-500">{item.category}</p>
+                  </div>
+                </div>
+              );
+            }}
+          />
         </div>
       );
     }
@@ -128,11 +156,11 @@ const Browse = () => {
     return (
       <div className="relative w-full h-full">
         <img
-          src={validImages[currentImageIndex]}
+          src={imagesToShow[currentImageIndex]}
           alt={item.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={() => {
-            if (currentImageIndex < validImages.length - 1) {
+            if (currentImageIndex < imagesToShow.length - 1) {
               setCurrentImageIndex(prev => prev + 1);
             } else {
               setImageError(true);
@@ -141,16 +169,16 @@ const Browse = () => {
         />
         
         {/* Image counter */}
-        {validImages.length > 1 && (
+        {imagesToShow.length > 1 && (
           <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs">
-            {currentImageIndex + 1}/{validImages.length}
+            {currentImageIndex + 1}/{imagesToShow.length}
           </div>
         )}
         
         {/* Navigation dots for multiple images */}
-        {validImages.length > 1 && (
+        {imagesToShow.length > 1 && (
           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
-            {validImages.map((_, index) => (
+            {imagesToShow.map((_, index) => (
               <button
                 key={index}
                 onClick={(e) => {
@@ -287,7 +315,7 @@ const Browse = () => {
           </p>
         </div>
 
-        {/* Items Grid */}
+        {/* Items Grid - THIS IS THE KEY FIX */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredItems.map((item, index) => (
             <Link key={`${item.id}-${index}`} to={`/item/${item.id}`}>
