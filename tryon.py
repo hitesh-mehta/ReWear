@@ -1,10 +1,25 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, File, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests, os, time
+import requests, os, time, shutil, uuid
+from pathlib import Path
 
 app = FastAPI()
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 API_KEY = "530d811337d44e59b55bd17567328723_9b7da23f09654574b7cd24f63be9d4c2_andoraitools"
+
+# Create temp directory
+TEMP_DIR = "temp_images"
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 # ========== UTILS ==========
 
@@ -68,17 +83,46 @@ def poll_order_status(order_id):
 
     raise TimeoutError("❌ Timed out waiting for result.")
 
-# ========== API ROUTE ==========
+# ========== API ROUTES ==========
+
+@app.post("/upload-temp-file")
+async def upload_temp_file(file: UploadFile = File(...)):
+    try:
+        # Generate unique filename
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        file_path = os.path.join(TEMP_DIR, unique_filename)
+        
+        # Save file
+        contents = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
+        
+        return {
+            "status": "success",
+            "file_path": file_path,
+            "message": "File uploaded successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
 @app.get("/tryon")
 def try_on(person_image_path: str = Query(...), cloth_image_path: str = Query(...)):
     try:
-        # Upload both images
-        upload_url1, person_url = get_upload_url(person_image_path)
-        upload_to_s3(upload_url1, person_image_path)
+        # Check if person_image_path is already a URL
+        if person_image_path.startswith("https://") or person_image_path.startswith("http://"):
+            person_url = person_image_path
+        else:
+            upload_url1, person_url = get_upload_url(person_image_path)
+            upload_to_s3(upload_url1, person_image_path)
 
-        upload_url2, cloth_url = get_upload_url(cloth_image_path)
-        upload_to_s3(upload_url2, cloth_image_path)
+        # Check if cloth_image_path is already a URL
+        if cloth_image_path.startswith("https://") or cloth_image_path.startswith("http://"):
+            cloth_url = cloth_image_path
+        else:
+            upload_url2, cloth_url = get_upload_url(cloth_image_path)
+            upload_to_s3(upload_url2, cloth_image_path)
 
         # Request try-on
         order_id = request_tryon(person_url, cloth_url)
