@@ -1,73 +1,75 @@
-# Welcome to your Lovable project
+# 👚 ReWear – Community Clothing Exchange Platform
 
-## Project info
+**ReWear** is a web-based sustainable fashion platform where users can **swap**, **rent**, or **redeem** unused clothing items through a **point-based and request-based system**. Built for eco-conscious Gen-Z users, ReWear enables community-driven fashion reuse, reducing textile waste and encouraging ethical consumption.
 
-**URL**: https://lovable.dev/projects/27ee1339-4c65-4fce-adaf-199d8d34ec8c
+---
 
-## How can I edit this code?
+## 🚀 Demo
 
-There are several ways of editing your application.
+📽️ A 5–7 minute demo video link will be added here after submission.
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/27ee1339-4c65-4fce-adaf-199d8d34ec8c) and start prompting.
+## 🌟 Features
 
-Changes made via Lovable will be committed automatically to this repo.
+### 👤 User Roles:
+- **Normal User**: Browse, upload, swap, rent, redeem, follow, chat
+- **Admin**: Moderate items/users, approve/reject listings, suspend accounts
+- **Business Owner**: Upload accessories, manage rentals
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 📱 Core Pages:
+- **Landing Page** with CTA, carousel, testimonials, and trending items
+- **Dashboard** showing points, uploads, orders, followers, badges
+- **Item Upload & Detail Page** with multi-image views and swap options
+- **Browse Page** with filters, search, tags, fuzzy and AI-based similarity
+- **Virtual Try-On (Mock)** interface
+- **Followers Page**, **Donate Page**, and **Accessibility Settings**
+- **Admin Panel** for moderation and radius-based management
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+### 🔥 Community & Gamification:
+- Follow/unfollow system with public stats
+- Score-based access control and "Trusted Swapper" levels
+- Badges: “Verified Washer”, “Sustainable Star”, “Fashion Guru”
+- Max 5 active swaps per user
+- Notification system for availability updates
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 🧩 Special Features:
+- **3D UI Elements** with Gen-Z vibes using Freepik illustrations
+- **Virtual Try-On (Mock UI)**
+- **Combo Listings** (e.g., 2-piece set)
+- **“Trending Now”** in your city or age group
+- **Multilingual support** (15+ languages)
+- **Accessibility options**: Keyboard nav, TTS, dyslexia font, high contrast
+- **Radius-based shipping/matching (Mocked via ShipRocket/Delhivery)**
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🛠️ Tech Stack
 
-**Edit a file directly in GitHub**
+| Frontend        | Backend              | AI & UI                  |
+|-----------------|----------------------|--------------------------|
+| React.js        | Node.js + Express.js | MobileNet/ResNet (Mock)  |
+| TailwindCSS     | SQLite / JSON Server | Freepik 3D UI Elements   |
+| React Router    | RESTful APIs         |                         |
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 🗃️ Local Setup
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 🔧 Prerequisites
+- Node.js v18+
+- Git
+- Yarn or npm
 
-## What technologies are used for this project?
+### 🛠️ Installation
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/27ee1339-4c65-4fce-adaf-199d8d34ec8c) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```bash
+git clone https://github.com/hitesh-mehta/ReWear.git
+cd ReWear
+npm install
