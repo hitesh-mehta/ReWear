@@ -41,8 +41,8 @@ const UnifiedMascot: React.FC<UnifiedMascotProps> = ({
 
   const getAnimationClass = () => {
     switch (animate) {
-      case 'float': return 'animate-pulse hover:scale-105 transition-transform duration-300';
-      case 'bounce': return 'animate-bounce hover:scale-105 transition-all duration-300';
+      // case 'float': return 'animate-pulse hover:scale-105 transition-transform duration-1700';
+      case 'bounce': return 'animate-bounce hover:scale-105 transition-all duration-1700';
       case 'pulse': return 'animate-pulse';
       default: return 'hover:scale-105 transition-transform duration-200';
     }
